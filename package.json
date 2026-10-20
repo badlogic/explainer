@@ -1,0 +1,8 @@
+{
+  "name": "explainer-skill",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "marked": "18.0.11"
+  }
+}

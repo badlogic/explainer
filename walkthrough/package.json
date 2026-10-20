@@ -1,0 +1,19 @@
+{
+  "name": "explainer-walkthrough-runtime",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build-runtime.mjs",
+    "check": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "@earendil-works/chord": "1.3.0",
+    "@earendil-works/pi-ai": "1.3.0",
+    "@earendil-works/pi-durable": "1.3.0",
+    "marked": "18.0.11"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "typescript": "7.0.2"
+  }
+}
