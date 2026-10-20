@@ -10,10 +10,12 @@ Every explainer is a small book: cover, contents, preface, numbered chapters, op
 Files in this skill directory (resolve paths against it):
 
 - `build.mjs`: `node <skill>/build.mjs book.md [-o index.html]`. Default output: `book.html` next to the input.
-- `template.md`: a complete example using every feature. Read it before writing a new book.
+- `examples/durable/`: samples of the expected prose style, structure and figures, written from pi-durable's public
+  README (`pi-durable-README.md`): `book.md` (built: `index.html`) and `walkthrough.md` (built: `walkthrough.html`).
+  Read `book.md` before writing a book and `walkthrough.md` before writing a walkthrough.
+- `template.md`: a complete example using every feature (syntax reference).
 - `book.css`: the design. Do not edit per book.
 - `lib/diagrams.mjs`, `lib/highlight.mjs`: diagram DSLs and code highlighting (used by the build).
-- `example.html` (local only, if present): a finished hand-written book for tone and density. Do not copy its content.
 - `walkthrough/`: the prebuilt runtime of walkthrough pages (`dist/runtime.js`) and its sources. See "Walkthroughs" below.
 
 Dependencies: `marked` (pinned in `package.json`). If `node_modules` is missing: `cd <skill> && npm install --ignore-scripts`.

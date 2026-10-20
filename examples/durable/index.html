@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Coming Back: how a pi-durable agent survives a crash</title>
+<style>
+
+:root{--paper:#fbf8f2;--ink:#2a2723;--muted:#7b7468;--rule:#e3dbcc;--accent:#b4472f;--blue:#2e6a8a;--sand:#c2b18c;--soft:#f4eee2}
+*{box-sizing:border-box}
+html{background:#efe9dd}
+body{margin:0;color:var(--ink);font:19px/1.68 'Iowan Old Style','Palatino Linotype',Palatino,'Book Antiqua',Georgia,serif;
+ -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+.book{max-width:860px;margin:0 auto;background:var(--paper);box-shadow:0 0 0 1px #e1d9c8,0 30px 80px -40px rgba(60,40,10,.35);padding:0 0 4rem}
+.inner{padding:0 90px}
+h1,h2,h3{font-weight:400;line-height:1.15}
+h2{font-size:2.1rem;margin:.2em 0 .3em;letter-spacing:-.01em}
+h3{font-size:1.05rem;text-transform:uppercase;letter-spacing:.14em;margin:2.4em 0 .6em;color:var(--ink);font-weight:600;
+ font-family:'Avenir Next','Helvetica Neue',sans-serif}
+p{margin:0 0 1.05em;hyphens:auto;text-align:left}
+code{font:.8em/1 'SF Mono',Menlo,Consolas,monospace;background:#f1ebde;padding:.1em .35em;border-radius:3px}
+pre{font:.74rem/1.55 'SF Mono',Menlo,Consolas,monospace;background:#f4eee2;border-left:3px solid var(--sand);padding:1rem 1.2rem;margin:1.4rem 0 1.8rem;
+ overflow-x:auto;border-radius:0 4px 4px 0;white-space:pre;tab-size:2}
+pre code{background:none;padding:0;font-size:1em}
+em{font-style:italic}
+a{color:var(--blue)}
+.cover{min-height:92vh;display:flex;flex-direction:column;justify-content:center;padding:90px;background:
+ radial-gradient(circle at 85% 15%,rgba(180,71,47,.13),transparent 40%),radial-gradient(circle at 10% 90%,rgba(46,106,138,.12),transparent 45%),var(--paper);
+ border-bottom:1px solid var(--rule)}
+.kicker{font:600 .78rem 'Avenir Next','Helvetica Neue',sans-serif;letter-spacing:.22em;text-transform:uppercase;color:var(--accent)}
+.cover h1{font-size:5.2rem;line-height:.98;margin:.35em 0 .25em;letter-spacing:-.025em}
+.subtitle{font-size:1.45rem;font-style:italic;color:#4a453e;max-width:30em;text-align:left}
+.cover-stats,.stats{display:flex;flex-wrap:wrap;gap:1.2rem 2.4rem;margin:2.2rem 0}
+.stats{margin:1.6rem 0 1.8rem;padding:1.1rem 0;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}
+.stat b{display:block;font-size:2.1rem;font-weight:400;line-height:1.1;font-variant-numeric:lining-nums}
+.stat span{font:.78rem/1.3 'Avenir Next','Helvetica Neue',sans-serif;color:var(--muted);letter-spacing:.03em;display:block;max-width:14em}
+.cover-note{font-size:.9rem;color:var(--muted);max-width:34em;text-align:left;margin-top:2rem}
+.toc{padding:4rem 0 2rem}
+.toc ol{list-style:none;padding:0;margin:1rem 0;columns:2;column-gap:3rem}
+.toc li{padding:.3rem 0;border-bottom:1px dotted var(--rule);break-inside:avoid}
+.toc a{color:var(--ink);text-decoration:none}
+.toc a:hover{color:var(--accent)}
+.preface{padding-top:2rem}
+.findings{padding-left:1.4em}
+.findings li{margin:.55em 0;padding-left:.3em}
+.findings li::marker{color:var(--accent);font-weight:600}
+.chapter{padding-top:4.5rem;margin-top:3rem;border-top:1px solid var(--rule)}
+.opener{text-align:center;margin-bottom:2.6rem}
+.numeral{font-size:4.2rem;color:var(--accent);line-height:1;font-variant:small-caps;letter-spacing:.05em}
+.opener h2{font-size:2.5rem;margin:.25em 0}
+.lede{font-style:italic;color:#5a544a;font-size:1.12rem;max-width:30em;margin:0 auto;text-align:center}
+.dropcap::first-letter{float:left;font-size:4.1em;line-height:.82;padding:.06em .09em 0 0;color:var(--accent)}
+.fig{margin:2rem 0 2.2rem}
+.fig.wide{margin-left:-50px;margin-right:-50px}
+.fig svg{display:block;margin:0 auto}
+figcaption{font:.8rem/1.45 'Avenir Next','Helvetica Neue',sans-serif;color:var(--muted);margin-top:.7rem;padding-left:.8rem;border-left:2px solid var(--rule)}
+.fignum{color:var(--ink);font-weight:600}
+.note{font:.86rem/1.55 'Avenir Next','Helvetica Neue',sans-serif;color:#5b5549;background:#f4eee2;border-left:3px solid var(--sand);
+ padding:.9rem 1.1rem;margin:1.8rem 0;border-radius:0 4px 4px 0}
+.note.review{border-left-color:var(--accent)}
+.note b.tag{font-weight:600;letter-spacing:.12em;text-transform:uppercase;font-size:.72rem;color:var(--accent);display:block;margin-bottom:.3rem}
+.note code{font-size:.85em}
+table{width:100%;border-collapse:collapse;margin:1.4rem 0 1.8rem;font:.8rem/1.4 'Avenir Next','Helvetica Neue',sans-serif}
+th{text-align:left;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-size:.68rem;border-bottom:1.5px solid var(--ink);padding:.45rem .5rem}
+td{padding:.42rem .5rem;border-bottom:1px solid var(--rule);vertical-align:top}
+td code{font-size:.92em}
+table.num td:not(:first-child),table.num th:not(:first-child){text-align:right}
+.epilogue p{font-size:1.04em}
+.appendix{font-size:.92em}
+.appendix ul,.chapter ul{padding-left:1.2em}
+.appendix li,.chapter li{margin:.4em 0}
+.colophon{text-align:center;font:.78rem 'Avenir Next','Helvetica Neue',sans-serif;color:var(--muted);margin-top:4rem;letter-spacing:.05em}
+@media (max-width:760px){.inner{padding:0 22px}.cover{padding:40px 22px}.cover h1{font-size:3.2rem}.fig.wide{margin-left:0;margin-right:0}
+ .toc ol{columns:1}p{text-align:left}body{font-size:17px}}
+@media print{html{background:#fff}.book{box-shadow:none}.chapter{break-before:page}.fig{break-inside:avoid}}
+.transcript p b{font:600 .78rem 'Avenir Next','Helvetica Neue',sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-right:.3em}
+pre .tk-c{color:#8d8576;font-style:italic}pre .tk-s{color:#5f7a3d}pre .tk-n{color:#a0662a}pre .tk-k{color:#b4472f}pre .tk-t{color:#2e6a8a}pre .tk-f{color:#7a3f6a}
+h4{font:600 .82rem 'Avenir Next','Helvetica Neue',sans-serif;letter-spacing:.06em;margin:1.8em 0 .5em;color:var(--muted)}
+.inner ul,.inner ol:not(.findings){padding-left:1.2em}
+.inner li{margin:.35em 0}
+blockquote{margin:1.4rem 0;padding:.2rem 0 .2rem 1.2rem;border-left:3px solid var(--rule);color:#5a544a;font-style:italic}
+.fig svg text{dominant-baseline:auto}
+.fig .replay{font:600 .7rem 'Avenir Next','Helvetica Neue',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);
+ background:none;border:1px solid var(--rule);border-radius:3px;padding:.2rem .55rem;margin:0 0 0 1rem;cursor:pointer;float:right}
+.fig .replay:hover{border-color:var(--accent)}
+.anim.armed .step{opacity:0}
+.anim.armed.play .step{animation:stepIn .45s ease-out both;animation-delay:calc(var(--i) * var(--pace, .45s))}
+.anim.armed.play .step.edge{animation-name:edgeIn}
+@keyframes stepIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+@keyframes edgeIn{from{opacity:0}to{opacity:1}}
+.steps{margin:2rem 0 2.2rem;border:1px solid var(--rule);border-radius:6px;background:#fffdf8}
+.steps-head{display:flex;align-items:center;gap:.8rem;padding:.6rem 1rem;border-bottom:1px solid var(--rule);
+ font:600 .72rem 'Avenir Next','Helvetica Neue',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
+.steps-head .title{flex:1}
+.steps-head .count{color:var(--muted);letter-spacing:.06em}
+.steps-head button{font:600 .72rem 'Avenir Next','Helvetica Neue',sans-serif;color:var(--ink);background:var(--soft);border:1px solid var(--rule);
+ border-radius:3px;padding:.25rem .65rem;cursor:pointer}
+.steps-head button:disabled{opacity:.35;cursor:default}
+.step-panel{padding:1rem 1.2rem .4rem}
+.step-panel>h4:first-child{margin-top:.2rem;color:var(--ink)}
+.steps.js .step-panel{display:none}
+.steps.js .step-panel.on{display:block}
+.steps:not(.js) .steps-head button,.steps:not(.js) .steps-head .count{display:none}
+.steps:not(.js) .step-panel+.step-panel{border-top:1px dashed var(--rule)}
+.fig figcaption{display:flow-root}
+</style>
+
+
+</head>
+<body><div class="book">
+<section class="cover">
+  <div class="kicker">A sample explainer · pi-durable 1.3.0 · 2026-10-21</div>
+  <h1>Coming<br>Back</h1>
+  <p class="subtitle">What is stored when, what runs again after a restart, and what the model is told about work that was cut short</p>
+  <div class="cover-stats"><div class="stat"><b>1</b><span>line of atomic commits per Harness</span></div><div class="stat"><b>100 ms</b><span>most streamed output a crash loses, by default</span></div><div class="stat"><b>4</b><span>storage backends with the same rules</span></div><div class="stat"><b>0</b><span>cross-process locks</span></div></div>
+  <div class="cover-note"><p>A sample book for the explainer skill, written from the published README of <code>@earendil-works/pi-durable</code> 1.3.0
+(<code>pi-durable-README.md</code> next to this file). It shows the expected structure, prose style and figures; it is not
+official documentation. Names and numbers are the README&#39;s.</p>
+</div>
+</section><div class="inner">
+<nav class="toc"><h2>Contents</h2><ol>
+<li><a href="#before-we-begin">Before we begin</a></li>
+<li><a href="#commits">I. One Line of Commits</a></li>
+<li><a href="#tasks">II. Tasks That Remember</a></li>
+<li><a href="#tools">III. Tools After a Crash</a></li>
+<li><a href="#requests">IV. Asking Twice</a></li>
+<li><a href="#what-it-does-not-do">What It Does Not Do</a></li>
+<li><a href="#reference">Appendix A: Reference</a></li>
+<li><a href="#glossary">Appendix B: Glossary</a></li>
+</ol></nav>
+
+<section class="preface" id="before-we-begin">
+<h2>Before we begin</h2>
+<p class="dropcap">Lena runs a coding agent on her laptop. It is in the middle of a turn: the model asked for two tool calls, <code>read</code> has
+finished, and <code>bash</code> is running the test suite. Lena closes the lid. The laptop sleeps, the battery runs out, and the
+process is gone.</p>
+<p>When she opens the laptop again and restarts the agent, she expects three things. The conversation is all there,
+including the answer the model was streaming. The test run is not silently lost: either it runs again or the model
+learns that it was cut short. And the message she sent just before closing the lid is not sent twice.</p>
+<p>The obvious design does not give her that. An agent that keeps its state in memory and saves a transcript file now
+and then loses everything since the last save. Saving after every step is not enough either: if the process dies
+between &quot;the tool ran&quot; and &quot;the result was saved&quot;, nobody knows whether the tool ran. pi-durable answers both with one
+rule: <strong>nothing is shown, and nothing runs, before the commit that records it is stored.</strong> This book follows Lena&#39;s
+turn through that rule.</p>
+<h3 id="six-things-to-know">Six things to know</h3>
+<ol class="findings">
+<li><strong>Everything is a commit.</strong> Entries, documents and tasks change only in atomic commits on one line per Harness. A
+commit is stored before anything sees it.</li>
+<li><strong>Work is tasks.</strong> The model call and every tool call are durable tasks that save a checkpoint at every step, so a
+restarted process continues from the last one.</li>
+<li><strong>Intent comes first.</strong> A tool call&#39;s intent is committed before <code>execute()</code> runs. After a crash, the Harness knows
+which calls started and which finished.</li>
+<li><strong>Tools decide whether they may run twice.</strong> A tool declared <code>replay: &quot;safe&quot;</code> reruns after a crash; any other tool
+gives the model an <code>interrupted</code> error result with the output committed so far.</li>
+<li><strong>Streaming loses at most a window.</strong> Partial answers and tool output are committed at most every 100 ms by
+default; a crash loses at most that window.</li>
+<li><strong>Asking twice is safe.</strong> A submission with a <code>requestId</code> that was already admitted returns the existing
+submission instead of submitting again.</li>
+</ol>
+<h3 id="words-used-throughout">Words used throughout</h3>
+<p>A <strong>Harness</strong> is one open storage plus the machinery that runs agents on it. A <strong>conversation</strong> is a transcript of
+immutable <strong>entries</strong> (a user message <code>pi.user</code>, a model response <code>pi.assistant</code>, a tool result <code>pi.tool-result</code>). A
+<strong>commit</strong> is an atomic write of entries, documents and tasks. A <strong>document</strong> is typed JSON state stored next to the
+transcript. A <strong>task</strong> is a durable state machine with a <strong>checkpoint</strong> per step; the Harness answers inputs with the
+built-in tasks <code>pi.generation</code> (one model call) and <code>pi.tool</code> (one tool call). A <strong>submission</strong> is something handed to
+a conversation and waited for. <strong>Resume</strong> means starting the task scheduler on a reopened storage.</p>
+</section>
+
+<section class="chapter" id="commits"><header class="opener"><div class="numeral">I</div><h2>One Line of Commits</h2><p class="lede">Why every change goes through a single ordered line, and what that buys after a crash.</p></header>
+<p class="dropcap">Lena&#39;s turn produced a handful of records: her message, a system entry, the model&#39;s response with two tool calls, a
+result for <code>read</code>, and a running <code>bash</code> call. If these were written independently, a crash could leave any subset on
+disk: a tool result without the call that asked for it, or a response whose tool calls have no tasks.</p>
+<p>pi-durable writes every change through <strong>one line of atomic commits</strong> per Harness. A commit appends entries, edits
+documents and creates or advances tasks together; either all of it is stored or none of it. Nothing is shown to a
+watcher, and no task runs, before its commit is stored.</p>
+<figure class="fig anim"><svg viewBox="0 0 720 310" width="100%" role="img" aria-label="One answered input, simplified. Each accent arrow is a commit; nothing after it starts before it is stored." xmlns="http://www.w3.org/2000/svg" style="font-family:'Avenir Next','Helvetica Neue',Helvetica,Arial,sans-serif;max-width:760px"><defs><marker id="f1m" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#7b7468"/></marker><marker id="f1a" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#b4472f"/></marker><marker id="f1b" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#2e6a8a"/></marker></defs><line x1="102" y1="52" x2="102" y2="302" stroke="#c9bfae" stroke-dasharray="3 3"/><rect x="23" y="10" width="158" height="42" rx="4" fill="#fff" stroke="#c9bfae"/><text x="102" y="27" font-size="11" fill="#2a2723" text-anchor="middle">app</text><text x="102" y="41" font-size="9.5" fill="#7b7468" text-anchor="middle">submit()</text><line x1="274" y1="52" x2="274" y2="302" stroke="#c9bfae" stroke-dasharray="3 3"/><rect x="195" y="10" width="158" height="42" rx="4" fill="#fff" stroke="#b4472f" stroke-width="1.5"/><text x="274" y="27" font-size="11" fill="#2a2723" text-anchor="middle">Harness</text><text x="274" y="41" font-size="9.5" fill="#7b7468" text-anchor="middle">the line</text><line x1="446" y1="52" x2="446" y2="302" stroke="#c9bfae" stroke-dasharray="3 3"/><rect x="367" y="10" width="158" height="42" rx="4" fill="#fff" stroke="#c9bfae"/><text x="446" y="27" font-size="11" fill="#2a2723" text-anchor="middle">model</text><text x="446" y="41" font-size="9.5" fill="#7b7468" text-anchor="middle">pi-ai</text><line x1="618" y1="52" x2="618" y2="302" stroke="#c9bfae" stroke-dasharray="3 3"/><rect x="539" y="10" width="158" height="42" rx="4" fill="#efe9dd" stroke="#c9bfae"/><text x="618" y="27" font-size="11" fill="#2a2723" text-anchor="middle">storage</text><text x="618" y="41" font-size="9.5" fill="#7b7468" text-anchor="middle">SQLite</text><g class="step edge" style="--i:1"><line x1="102" y1="78" x2="271" y2="78" stroke="#7b7468" marker-end="url(#f1m)"/><text x="188" y="72" font-size="10" fill="#2a2723" text-anchor="middle">submit(input)</text></g><g class="step edge" style="--i:2"><line x1="274" y1="110" x2="615" y2="110" stroke="#b4472f" marker-end="url(#f1a)"/><text x="446" y="104" font-size="10" fill="#b4472f" text-anchor="middle">commit pi.user + generation task</text></g><g class="step edge" style="--i:3"><line x1="274" y1="142" x2="443" y2="142" stroke="#7b7468" marker-end="url(#f1m)"/><text x="360" y="136" font-size="10" fill="#2a2723" text-anchor="middle">request</text></g><g class="step edge" style="--i:4"><line x1="446" y1="174" x2="277" y2="174" stroke="#7b7468" stroke-dasharray="4 3" marker-end="url(#f1m)"/><text x="360" y="168" font-size="10" fill="#2a2723" text-anchor="middle">tool calls: read, bash</text></g><g class="step edge" style="--i:5"><line x1="274" y1="206" x2="615" y2="206" stroke="#b4472f" marker-end="url(#f1a)"/><text x="446" y="200" font-size="10" fill="#b4472f" text-anchor="middle">commit pi.assistant + two tool tasks</text></g><g class="step edge" style="--i:6"><path d="M274 232 h34 v14 h-32" fill="none" stroke="#7b7468" marker-end="url(#f1m)"/><text x="316" y="242" font-size="10" fill="#2a2723" text-anchor="start">run read, run bash</text></g><g class="step edge" style="--i:7"><line x1="274" y1="278" x2="615" y2="278" stroke="#b4472f" marker-end="url(#f1a)"/><text x="446" y="272" font-size="10" fill="#b4472f" text-anchor="middle">commit pi.tool-result (read)</text></g></svg><figcaption><button class="replay" type="button">Replay</button><span class="fignum">Figure 1.</span> One answered input, simplified. Each accent arrow is a commit; nothing after it starts before it is stored.</figcaption></figure>
+<p>So the state after a crash is always one of the states between two commits. In Lena&#39;s case the store holds the
+response with both tool calls, the finished <code>read</code> result and a <code>bash</code> task that started but never committed a result.
+That is exactly what the Harness needs to decide what to do next.</p>
+</section>
+
+<section class="chapter" id="tasks"><header class="opener"><div class="numeral">II</div><h2>Tasks That Remember</h2><p class="lede">How the model call and the tool calls continue after a restart instead of starting over.</p></header>
+<p class="dropcap">Work that takes time, a model call or a tool call, is a <strong>task</strong>: a state machine that saves a checkpoint at every
+step. The Harness runs an answer as built-in tasks. <code>pi.generation</code> calls the model and owns one <code>pi.tool</code> task per
+tool call; it waits for them and then hands the run to the next generation.</p>
+<figure class="fig wide anim"><svg viewBox="0 0 720 241" width="100%" role="img" aria-label="The tasks of Lena's turn. The generation owns the tool tasks and waits for them; each task's state is in storage." xmlns="http://www.w3.org/2000/svg" style="font-family:'Avenir Next','Helvetica Neue',Helvetica,Arial,sans-serif;max-width:760px"><defs><marker id="f2m" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#7b7468"/></marker><marker id="f2a" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#b4472f"/></marker><marker id="f2b" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#2e6a8a"/></marker></defs><text x="16" y="22" font-size="10" fill="#7b7468" text-anchor="start" font-weight="600" letter-spacing="2">CONVERSATION</text><text x="16" y="144" font-size="10" fill="#2e6a8a" text-anchor="start" font-weight="600" letter-spacing="2">TOOL TASKS</text><g class="step" style="--i:1"><rect x="137" y="36" width="210" height="44" rx="4" fill="#fff" stroke="#c9bfae"/><text x="242" y="55.3" font-size="11" fill="#2a2723" text-anchor="middle">conversation</text><text x="242" y="69.3" font-size="9.5" fill="#7b7468" text-anchor="middle">Lena's root</text></g><g class="step" style="--i:3"><rect x="373" y="36" width="210" height="44" rx="4" fill="#fff" stroke="#b4472f" stroke-width="1.5"/><text x="478" y="55.3" font-size="11" fill="#2a2723" text-anchor="middle">pi.generation</text><text x="478" y="69.3" font-size="9.5" fill="#7b7468" text-anchor="middle">waiting for its tools</text></g><g class="step" style="--i:5"><rect x="137" y="158" width="210" height="44" rx="4" fill="#fff" stroke="#c9bfae"/><text x="242" y="177.3" font-size="11" fill="#2a2723" text-anchor="middle">pi.tool read</text><text x="242" y="191.3" font-size="9.5" fill="#7b7468" text-anchor="middle">done, result committed</text></g><g class="step" style="--i:7"><rect x="373" y="158" width="210" height="44" rx="4" fill="#fff" stroke="#b4472f" stroke-width="1.5"/><text x="478" y="177.3" font-size="11" fill="#2a2723" text-anchor="middle">pi.tool bash</text><text x="478" y="191.3" font-size="9.5" fill="#7b7468" text-anchor="middle">started, no result</text></g><g class="step edge" style="--i:2"><path d="M347 58 L371 58" fill="none" stroke="#7b7468" marker-end="url(#f2m)"/><rect x="345.5" y="41" width="29.1" height="13" fill="#fbf8f2" opacity=".92"/><text x="360" y="51" font-size="9.5" fill="#7b7468" text-anchor="middle">owns</text></g><g class="step edge" style="--i:4"><path d="M478 80 L242 156" fill="none" stroke="#7b7468" marker-end="url(#f2m)"/><rect x="364" y="112" width="29.1" height="13" fill="#fbf8f2" opacity=".92"/><text x="368" y="122" font-size="9.5" fill="#7b7468" text-anchor="start">owns</text></g><g class="step edge" style="--i:6"><path d="M478 80 L478 156" fill="none" stroke="#7b7468" marker-end="url(#f2m)"/><rect x="482" y="112" width="29.1" height="13" fill="#fbf8f2" opacity=".92"/><text x="486" y="122" font-size="9.5" fill="#7b7468" text-anchor="start">owns</text></g><text x="16" y="226" font-size="10.5" fill="#7b7468" text-anchor="start">After the restart, tasks that were running show as pending until they run again.</text></svg><figcaption><button class="replay" type="button">Replay</button><span class="fignum">Figure 2.</span> The tasks of Lena&#39;s turn. The generation owns the tool tasks and waits for them; each task&#39;s state is in storage.</figcaption></figure>
+<p>When Lena restarts the agent, the app reopens the same storage and calls <code>resume()</code>:</p>
+<pre><code><span class="tk-k">const</span> harness = <span class="tk-k">await</span> <span class="tk-t">Harness</span>.<span class="tk-f">open</span>(<span class="tk-k">await</span> <span class="tk-f">openNodeSqliteStorage</span>(<span class="tk-s">"./session.sqlite"</span>), { models, registry }, context);
+<span class="tk-k">const</span> root = <span class="tk-k">await</span> harness.<span class="tk-f">root</span>(context); <span class="tk-c">// the same root as last time</span>
+harness.<span class="tk-f">resume</span>(); <span class="tk-c">// continue any run the last process left unfinished</span></code></pre>
+<p>Submitting or waiting starts the scheduler too. The generation task is still waiting for its tools, <code>read</code> is done,
+and <code>bash</code> is the one open question.</p>
+<div class="note"><b class="tag">Provider identity survives too</b><p>Each conversation has its own persisted UUIDv7 in <code>pi.provider</code>, forwarded to pi-ai as the session id for prompt
+caching. It survives reopen, retries and model changes, so the provider sees the same session after the restart.</p>
+</div>
+</section>
+
+<section class="chapter" id="tools"><header class="opener"><div class="numeral">III</div><h2>Tools After a Crash</h2><p class="lede">What happens to a tool call that was running when the process died.</p></header>
+<p class="dropcap">The <code>bash</code> call is the hard case. Its intent was committed before <code>execute()</code> ran, so the Harness knows the call
+started. It does not know how far it got. Running it again might be harmless (a test suite) or wrong (sending an
+email twice). pi-durable does not guess: <strong>the tool declares it.</strong></p>
+<div class="steps"><div class="steps-head"><span class="title">Reopening with an interrupted bash call</span><span class="count"></span><button class="prev" type="button">Back</button><button class="next" type="button">Next</button></div><div class="step-panel"><h4>The intent is found</h4><p>The <code>bash</code> task has its intent committed and no result. The process that ran it is gone.</p>
+</div><div class="step-panel"><h4>Replay-safe: run again</h4><p>A tool declared <code>replay: &quot;safe&quot;</code> reruns on reopen. A test run is a good candidate: running it twice costs time, not
+correctness.</p>
+</div><div class="step-panel"><h4>Not replay-safe: tell the model</h4><p>Any other tool does not run again. The model gets an <code>interrupted</code> error result that carries the output committed so
+far, and decides itself what to do, for example run the command again.</p>
+</div><div class="step-panel"><h4>The turn continues</h4><p>With every tool task settled, the run continues: the next generation calls the model with both results, and Lena&#39;s
+turn goes on as if the gap had been a slow tool.</p>
+</div></div>
+<p><strong>Output that was streaming.</strong> Partial answers and tool output are committed at most every 100 ms by default
+(<code>settings.progress</code> changes the intervals). Whatever the model or the tool had produced up to the last progress
+commit is in the store; at most that window is lost.</p>
+<p><strong>Nested calls</strong> follow the same rule per call. A tool that calls other tools through <code>api.executeTool()</code> gets its
+finished nested calls back by key when it reruns; a caller that is not replay-safe never reruns, so its unfinished
+nested calls are abandoned before they run again.</p>
+<div class="note review"><b class="tag">Review: &quot;safe&quot; is a promise, not a check</b><p><code>replay: &quot;safe&quot;</code> is the tool author&#39;s statement. The README is explicit that a replay-safe tool with external effects
+still needs its own idempotency, for example a request id on the external call. The Harness cannot verify it.</p>
+</div>
+</section>
+
+<section class="chapter" id="requests"><header class="opener"><div class="numeral">IV</div><h2>Asking Twice</h2><p class="lede">Why Lena&#39;s last message is not sent twice when the app retries it after the restart.</p></header>
+<p class="dropcap">Lena sent a follow-up just before closing the lid. Her app does not know whether the submit reached the store, so
+after the restart it sends it again. Without help, the agent would answer it twice.</p>
+<p>A submission can carry a <code>requestId</code>. A retried submission with the same id returns the existing submission instead
+of submitting twice:</p>
+<pre><code><span class="tk-k">const</span> submission = <span class="tk-k">await</span> root.<span class="tk-f">submit</span>({ <span class="tk-k">type</span>: <span class="tk-s">"input"</span>, content: <span class="tk-s">"Hello"</span>, requestId: <span class="tk-s">"greeting-1"</span> }, context);
+<span class="tk-c">// After a restart: the same request ID finds the same submission.</span>
+<span class="tk-k">const</span> again = <span class="tk-k">await</span> root.<span class="tk-f">submit</span>({ <span class="tk-k">type</span>: <span class="tk-s">"input"</span>, content: <span class="tk-s">"Hello"</span>, requestId: <span class="tk-s">"greeting-1"</span> }, context);
+<span class="tk-c">// again.id === submission.id</span></code></pre>
+<p><code>harness.submission(id)</code> finds a submission again by its id, for example to wait for it after the restart. The app&#39;s
+rule is simple: mint the request id when the user presses Send, keep it until the submit is acknowledged, and reuse it
+on every retry.</p>
+</section>
+
+<section class="chapter epilogue" id="what-it-does-not-do"><header class="opener"><div class="numeral">∴</div><h2>What It Does Not Do</h2><p class="lede">The limits the README states, and what a host must handle itself.</p></header>
+<ul>
+<li><strong>A storage error ends the Harness.</strong> The call that hit it rejects, everything after it rejects with
+<code>SessionFailed</code>, and the Harness closes itself. Nothing is retried; the host reopens. Commits are atomic, so the
+store is consistent, and resubmitting with the same <code>requestId</code> finds what was already admitted.</li>
+<li><strong>One process owns a storage at a time.</strong> There is no cross-process locking; a host that may open the same storage
+twice (two browser tabs, two CLI processes) must prevent it itself.</li>
+<li><strong>Power loss is weaker than a crash.</strong> SQLite runs in WAL mode with <code>synchronous = NORMAL</code>: commits survive process
+crashes, but the newest one may be lost on power or host failure.</li>
+<li><strong>Code that ignores its abort signal delays close.</strong> Closing waits for running task code to return.</li>
+</ul>
+</section>
+
+<section class="chapter appendix" id="reference"><header class="opener"><div class="numeral">A</div><h2>Reference</h2></header>
+<table>
+<thead>
+<tr>
+<th>Situation after a restart</th>
+<th>What happens</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>a commit was stored</td>
+<td>it is all there: entries, documents, tasks</td>
+</tr>
+<tr>
+<td>a commit was in flight</td>
+<td>none of it is there</td>
+</tr>
+<tr>
+<td>a task was running</td>
+<td>it shows as pending, then continues from its last checkpoint</td>
+</tr>
+<tr>
+<td>a tool call started, <code>replay: &quot;safe&quot;</code></td>
+<td>it runs again</td>
+</tr>
+<tr>
+<td>a tool call started, not replay-safe</td>
+<td>the model gets an <code>interrupted</code> error result with the output so far</td>
+</tr>
+<tr>
+<td>a task created with <code>abandonOnRestart: true</code></td>
+<td>aborted with <code>abortReason: &quot;restart&quot;</code>, with everything it owns</td>
+</tr>
+<tr>
+<td>a submission is retried with the same <code>requestId</code></td>
+<td>the existing submission is returned</td>
+</tr>
+</tbody></table>
+</section>
+
+<section class="chapter appendix" id="glossary"><header class="opener"><div class="numeral">B</div><h2>Glossary</h2></header>
+<p><strong>Checkpoint:</strong> the saved state of a task after one step. <strong>Commit:</strong> an atomic write of entries, documents and
+tasks. <strong>Conversation:</strong> a transcript of immutable entries. <strong>Document:</strong> typed JSON state stored next to the
+transcript. <strong>Entry:</strong> one immutable transcript record. <strong>Harness:</strong> one open storage plus the machinery that runs
+agents on it. <strong>Intent:</strong> the commit that records a tool call before it runs. <strong>Replay-safe:</strong> a tool that may run
+again after a crash. <strong>Resume:</strong> starting the task scheduler on a reopened storage. <strong>Submission:</strong> an input or a write
+handed to a conversation. <strong>Task:</strong> a durable state machine with a checkpoint per step.</p>
+</section>
+
+<p class="colophon">Coming Back · sample edition · 2026-10-21 · based on the pi-durable 1.3.0 README</p>
+</div></div>
+<script>(function activate(root) {
+	const replay = (f) => {
+		f.classList.remove("play");
+		void f.getBoundingClientRect();
+		f.classList.add("play");
+	};
+	const io = new IntersectionObserver(
+		(es) => {
+			for (const e of es)
+				if (e.isIntersecting) {
+					e.target.classList.add("play");
+					io.unobserve(e.target);
+				}
+		},
+		{ threshold: 0.3 },
+	);
+	root.querySelectorAll(".anim:not(.armed)").forEach((f) => {
+		f.classList.add("armed");
+		io.observe(f);
+		const b = f.querySelector(".replay");
+		if (b) b.onclick = () => replay(f);
+	});
+	root.querySelectorAll(".steps:not(.js)").forEach((s) => {
+		s.classList.add("js");
+		const ps = [...s.querySelectorAll(":scope>.step-panel")];
+		let i = 0;
+		const c = s.querySelector(".count"),
+			p = s.querySelector(".prev"),
+			n = s.querySelector(".next");
+		const show = () => {
+			ps.forEach((x, j) => x.classList.toggle("on", j === i));
+			c.textContent = `${i + 1} / ${ps.length}`;
+			p.disabled = i === 0;
+			n.disabled = i === ps.length - 1;
+			ps[i].querySelectorAll(".anim").forEach(replay);
+		};
+		p.onclick = () => {
+			i--;
+			show();
+		};
+		n.onclick = () => {
+			i++;
+			show();
+		};
+		show();
+	});
+})(document)</script>
+</body></html>

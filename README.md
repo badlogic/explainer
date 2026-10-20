@@ -28,6 +28,8 @@ cd <repo> && node <skill>/build.mjs walkthrough.md -o walkthrough.html   # a wal
 ```
 
 [`SKILL.md`](SKILL.md) documents the format; [`template.md`](template.md) shows every book feature.
+[`examples/durable/`](examples/durable) has a sample book and a sample walkthrough (with their built HTML) on how
+pi-durable survives a crash: the reference for prose style and structure.
 
 ## Layout
 
