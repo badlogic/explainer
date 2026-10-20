@@ -3,10 +3,11 @@ import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { type AuthEvent, type AuthPrompt, createModels, type Api, type Model } from "@earendil-works/pi-ai";
 import { registerBunOAuthFlows } from "@earendil-works/pi-ai/bun-oauth";
 import { builtinProviders } from "@earendil-works/pi-ai/providers/all";
-import { createRegistry, Harness, MemoryStorage } from "@earendil-works/pi-durable";
+import { createRegistry, Harness } from "@earendil-works/pi-durable";
 import { activate, Book, encode, md } from "../../lib/render.mjs";
 import { IndexedDbCredentialStore } from "./credentials.ts";
 import { deliverCallback, hasListeningServer } from "./stubs/http.ts";
+import { IndexedDbStorage } from "./vendor/indexeddb-storage.ts";
 import { createTutor, type Progress, ProgressDoc, type WalkthroughData } from "./tutor.ts";
 
 type Json = Record<string, unknown>;
@@ -232,8 +233,21 @@ async function main() {
 
 	const registry = createRegistry();
 	registry.install(createTutor(data, checkCard));
-	// Memory for now; the IndexedDB storage replaces it once pi-durable publishes it, so the session survives reloads.
-	const harness = await Harness.open(new MemoryStorage(), { models, registry }, ctx);
+	// One database per walkthrough. Durable allows one owner per storage, so a Web Lock keeps a second tab out.
+	const dbName = `walkthrough-session:${data.title}`;
+	if (!(await holdLock(dbName))) {
+		$("#wt-boot").textContent = "This walkthrough is open in another tab. Close it there, then reload this page.";
+		return;
+	}
+	void navigator.storage?.persist?.();
+	const harness = await Harness.open(await IndexedDbStorage.open(dbName), { models, registry }, ctx);
+	harness.resume();
+	$("#wt-reset").onclick = async () => {
+		if (!confirm("Start over? This deletes the conversation and your progress in this browser.")) return;
+		await harness.close(ctx);
+		await IndexedDbStorage.delete(dbName);
+		location.reload();
+	};
 
 	const modelKey = "walkthrough:model";
 	let chosen = JSON.parse(localStorage.getItem(modelKey) ?? "null") as { provider: string; modelId: string } | null;
@@ -476,14 +490,22 @@ async function main() {
 		}
 		renderLive(value);
 		renderRail(await harness.snapshot(ProgressDoc, root.id, ctx));
-		if (nearBottom) window.scrollTo({ top: document.body.scrollHeight });
+		if (follow) window.scrollTo({ top: document.body.scrollHeight });
 	};
-	let nearBottom = true;
+	// Follow new output only after the learner sent something, and only while they stay near the bottom.
+	let follow = false;
 	window.addEventListener("scroll", () => {
-		nearBottom = window.innerHeight + window.scrollY > document.body.scrollHeight - 120;
+		if (sending) return;
+		follow = window.innerHeight + window.scrollY > document.body.scrollHeight - 160;
 	});
+	let sending = false;
 	view.subscribe((value) => void update(value as unknown as View));
 	await update(view.value as unknown as View);
+	// A resumed conversation opens where it left off.
+	if ((view.value as unknown as View).entries.some((e) => e.kind === "pi.user")) {
+		follow = true;
+		requestAnimationFrame(() => window.scrollTo({ top: document.body.scrollHeight }));
+	}
 
 	/* ---- composer */
 	const input = $<HTMLTextAreaElement>("#wt-input");
@@ -492,6 +514,9 @@ async function main() {
 		if (!textValue.trim()) return;
 		input.value = "";
 		input.style.height = "auto";
+		follow = true;
+		sending = true;
+		setTimeout(() => (sending = false), 800);
 		try {
 			await root.submit({ type: "input", content: textValue, whenBusy: "steer" }, ctx);
 		} catch (error) {
@@ -528,6 +553,17 @@ async function main() {
 	await applyModel();
 	if (!chosen) await openLogin();
 	$("#wt-boot").remove();
+}
+
+/** Takes the Web Lock `name` and holds it for the page's lifetime; false when another tab holds it. */
+function holdLock(name: string): Promise<boolean> {
+	if (!navigator.locks) return Promise.resolve(true);
+	return new Promise((resolve) => {
+		void navigator.locks.request(name, { ifAvailable: true }, (lock) => {
+			resolve(lock !== null);
+			return lock ? new Promise<void>(() => {}) : undefined;
+		});
+	});
 }
 
 function deviceId(): string {

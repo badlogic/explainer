@@ -207,12 +207,13 @@ which figure would help.
   OpenRouter API keys, OpenRouter OAuth. Blocked by the providers (no CORS headers for web pages): Claude Pro/Max,
   Sign in with ChatGPT, Codex, GitHub Copilot and xAI sign-ins. The sign-in dialog lists every pi-ai provider and
   labels the blocked ones.
-- The conversation and progress live in memory for one visit (a reload starts over); credentials and the chosen
-  model persist. Persistence comes with pi-durable's IndexedDB storage once it is published.
+- The conversation, progress, credentials and chosen model persist in the reader's browser (IndexedDB), per page
+  origin. One tab at a time; "Start over" in the outline deletes the conversation.
 - Check it before publishing: open it in a browser (any local static server), sign in, press Start, answer one
   question, and look at the figures the tutor drew.
 
 Rebuilding the runtime (only when changing `walkthrough/src/` or updating pi packages): `cd <skill>/walkthrough && npm
-install --ignore-scripts && npm run check && npm run build`. Dependencies come from npm (`@earendil-works/pi-ai`,
+install --ignore-scripts && npm run check && npm test && npm run build`. `src/vendor/` holds pi-durable's IndexedDB
+storage, copied from pi until it is published; then import `@earendil-works/pi-durable/storage/indexeddb` instead. Dependencies come from npm (`@earendil-works/pi-ai`,
 `pi-durable`, `chord`), pinned in `walkthrough/package.json`.
 
