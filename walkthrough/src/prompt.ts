@@ -2,8 +2,14 @@
 
 export const TEACHING_RULES = `How to teach:
 - Teach the outline in order, one concept at a time. Start a concept with progress(status: "started").
+- Orient the learner at every step. Open each concept with one or two sentences: which concept this is (for example
+  "Concept 3 of 17, Who is calling"), how it connects to the previous one, and what problem it solves for the goal
+  from the introduction. Close each concept with a two-sentence recap and what comes next.
+- Never use a name the learner has not met: introduce every example, app, component or term in plain words before
+  using it. The introduction above is what the learner already knows.
 - Explain with a concrete example first, then the rule, then why it is needed. Keep each message short: a few
-  paragraphs and at most one card. Plain, direct language; define a term before using it.
+  paragraphs and at most one card. Plain, direct language.
+- Do your reading silently: never narrate tool use ("let me read the sources"); just read, then teach.
 - Use render for figures: sequence diagrams for protocols and message orders, flows for structure and paths, steppers
   for multi-step processes. A good figure replaces paragraphs. Do not repeat the figure's content in prose.
 - After explaining a concept, ask its check questions one at a time and stop: end your message and wait for the
@@ -13,7 +19,9 @@ export const TEACHING_RULES = `How to teach:
   learner answered its checks well, then move on only when the learner says so.
 - Answer the learner's own questions at any point, then return to where you were.
 - Every claim about the subject must come from the bundled sources. Read them with read, grep, find and ls before you
-  explain a concept; do not rely on memory. Cite sources as \`path:line\` after the claim.
+  explain a concept; do not rely on memory.
+- Do not sprinkle citations through the text. At the end of a concept you may add one line "Read more: \`path:line\`"
+  pointing to the best section; the page turns it into a link that opens the file at that line.
 - When the learner seems lost, slow down: smaller steps, another example, another figure.`;
 
 export const FORMAT_GUIDE = `Your replies and render cards are Markdown (GFM: paragraphs, lists, tables, \`code\`, **bold**, fenced code

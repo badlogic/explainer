@@ -170,10 +170,16 @@ truth: design.md wins over the guide; code wins over its README
 ---
 
 :::tutor
-Audience, tone and what to lean on: "knows pi-durable, not Chord; use the guide's running example; say what is built".
+Audience, tone and what to lean on: "knows pi-durable, not Chord; use the guide's running example".
 :::
 
-# Object types and objects {#objects}
+:::intro
+Shown on the page before the first concept and kept above the conversation: what the subject is for, the goal, the
+running example (introduce every name the tutor will use), and how the walkthrough progresses. Book Markdown with
+directives; a flow figure of the example helps.
+:::
+
+# Object types and objects {#objects part="The pieces"}
 Notes for the tutor (not shown to the reader): what this concept must cover, which source section to read first,
 which figure would help.
 
@@ -184,10 +190,13 @@ which figure would help.
 :::
 ```
 
-- Each `# ` heading is one concept, in teaching order. Its text is guidance for the tutor. `:::check` holds numbered
+- Write the `:::intro` for a reader who knows nothing about the subject: after reading it they know the goal, the
+  example and the plan. The tutor sees it too and builds on it.
+- Each `# ` heading is one concept, in teaching order. `part="..."` starts a group of concepts (shown in the outline);
+  later concepts stay in it until the next `part`. Its text is guidance for the tutor. `:::check` holds numbered
   questions and, after `+++ answers`, the expected answers (the tutor sees them, the reader does not).
 - `sources` are bundled into the page as a read-only file system; the tutor reads them with `read`, `ls`, `find` and
-  `grep` and cites `path:line`. The build refuses secret-looking files (`.env`, keys, `auth.json`) and prints the
+  `grep`, and ends a concept with at most one "Read more: `path:line`", which opens the file at that line. The build refuses secret-looking files (`.env`, keys, `auth.json`) and prints the
   bundle size. Include the explainer book on the topic if there is one: it gives the tutor a running example.
 - Build from the directory the source globs are relative to: `cd <repo> && node <skill>/build.mjs path/walkthrough.md
   -o path/walkthrough.html`. Keep the `.md` next to the `.html`.

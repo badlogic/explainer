@@ -70,3 +70,17 @@ body.wt{display:grid;grid-template-columns:290px minmax(0,1fr);min-height:100vh;
  #wt-outline-btn{display:inline-block}
 }
 @media (max-width:760px){#wt-transcript,#wt-live,#wt-start,.wt-composer,#wt-boot{padding-left:20px;padding-right:20px}.wt-bar{padding:.55rem .8rem}}
+#wt-outline li.part{display:block;border:0;padding:1.1rem 0 .3rem;color:var(--accent);font:600 .68rem 'Avenir Next','Helvetica Neue',sans-serif;letter-spacing:.16em;text-transform:uppercase}
+#wt-outline li.part:first-child{padding-top:0}
+#wt-start{border-bottom:1px solid var(--rule);padding-bottom:2rem}
+#wt-start h4{margin-top:2rem}
+#wt-concepts{display:grid;grid-template-columns:repeat(auto-fit,minmax(15rem,1fr));gap:.4rem 2rem;margin:1rem 0 1.6rem}
+.wt-part b{display:block;font:600 .7rem 'Avenir Next','Helvetica Neue',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem}
+.wt-part ol{margin:0 0 .8rem;padding-left:1.6em;font-size:.92rem;color:#4a453e}
+.wt-cite{cursor:pointer;color:var(--blue);text-decoration:underline dotted;text-underline-offset:3px}
+.wt-cite:hover{background:#e6eef2}
+.wt-dialog.wt-source{width:min(980px,94vw)}
+.wt-source-text{margin:0;max-height:72vh;overflow:auto;border-left:0;font-size:.72rem;line-height:1.5;counter-reset:ln;padding:.6rem 0}
+.wt-source-text .ln{display:block;padding:0 1rem 0 0}
+.wt-source-text .ln::before{content:attr(data-n);display:inline-block;width:3.6em;margin-right:1em;text-align:right;color:#b3a993}
+.wt-source-text .ln.hl{background:#f6e3c8}

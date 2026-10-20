@@ -16,7 +16,25 @@ laptop lid mid-turn, while `bash` runs the tests) as the running example. Read t
 concept, and check details in the README. Short messages; one figure per concept at most.
 :::
 
-# One line of commits {#commits}
+:::intro
+#### What this is about
+
+An agent that runs for minutes or hours will be interrupted: a laptop lid closes, a process crashes, a deploy restarts
+the server. **pi-durable** is an agent harness built so that an interruption loses (almost) nothing: the conversation,
+the running tools and the user's last message all come back after a restart.
+
+#### The example
+
+Lena runs a coding agent on her laptop. Mid-turn, while `bash` runs the test suite, she closes the lid and the process
+dies. Each concept follows that turn through one mechanism: how state is stored, how work continues, what happens to
+the interrupted tool, and why her last message is not sent twice.
+
+#### How it progresses
+
+Five concepts: commits, tasks, tools after a crash, retried submissions, and the limits.
+:::
+
+# One line of commits {#commits part="What is stored"}
 Book chapter I; README "Concepts". Must cover: entries, documents and tasks change only in atomic commits on one line
 per Harness; nothing is shown or runs before its commit is stored; after a crash the store is in a state between two
 commits. A sequence figure of one answered input helps.
@@ -37,7 +55,7 @@ and waits for them; checkpoints per step; reopen plus resume(); running tasks sh
 1. harness.resume(); submitting or waiting also starts the task scheduler.
 :::
 
-# Tools after a crash {#tools}
+# Tools after a crash {#tools part="Coming back"}
 Book chapter III; README "Tools", "Calling tools from tools". Must cover: intent committed before execute(); replay:
 "safe" reruns; otherwise an interrupted error result with the output so far; the 100 ms progress window; nested calls.
 
@@ -59,7 +77,7 @@ minting the id when the user presses Send and reusing it on retries.
 1. The Harness cannot match it to the first submission, so if the first one was admitted the input is answered twice.
 :::
 
-# Limits {#limits}
+# Limits {#limits part="Limits"}
 Book epilogue; README "Errors", "Storage". Must cover: a storage error ends the Harness and the host reopens; one
 process per storage; SQLite WAL with synchronous NORMAL may lose the newest commit on power loss.
 

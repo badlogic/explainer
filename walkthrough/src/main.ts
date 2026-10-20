@@ -44,6 +44,38 @@ const el = (tag: string, cls?: string, html?: string) => {
 
 let cardSeq = 0;
 let figures = 0;
+let sources: Record<string, string> = {};
+
+/** `path:line` or `path:12-40` in code spans becomes a link that opens the bundled file at that line. */
+function linkCitations(root: HTMLElement) {
+	const paths = Object.keys(sources);
+	for (const code of root.querySelectorAll("code")) {
+		if (code.closest("pre")) continue;
+		const m = /^([\w./-]+\.[\w]+)(?::(\d+)(?:[-–](\d+))?)?$/.exec(code.textContent?.trim() ?? "");
+		if (!m) continue;
+		const exact = paths.find((p) => p === m[1]);
+		const suffix = paths.filter((p) => p.endsWith(`/${m[1]}`));
+		const path = exact ?? (suffix.length === 1 ? suffix[0] : undefined);
+		if (!path) continue;
+		const from = m[2] ? Number(m[2]) : 1;
+		const to = m[3] ? Number(m[3]) : m[2] ? from : 0;
+		code.classList.add("wt-cite");
+		code.title = `Open ${path}`;
+		code.onclick = () => openSource(path, from, to);
+	}
+}
+
+function openSource(path: string, from: number, to: number) {
+	const { body } = dialog(path);
+	body.parentElement?.classList.add("wt-source");
+	const lines = (sources[path] ?? "").split("\n");
+	const pre = el("pre", "wt-source-text");
+	pre.innerHTML = lines
+		.map((line, i) => `<span class="ln${i + 1 >= from && i + 1 <= to ? " hl" : ""}" data-n="${i + 1}">${encode(line) || " "}</span>`)
+		.join("");
+	body.append(pre);
+	requestAnimationFrame(() => pre.querySelector(`[data-n="${Math.max(1, from - 3)}"]`)?.scrollIntoView({ block: "start" }));
+}
 /** Figures are numbered across the whole transcript, in display order. */
 function renderMarkdown(markdown: string, prefix: string): string {
 	const book = new Book({ prefix, start: figures });
@@ -190,6 +222,9 @@ function showEvent(body: HTMLElement, event: AuthEvent) {
 
 async function main() {
 	const data = JSON.parse(($("#walkthrough-data") as HTMLScriptElement).textContent ?? "{}") as WalkthroughData;
+	sources = data.sources;
+	figures = data.introFigures ?? 0;
+	activate($("#wt-start"));
 	registerBunOAuthFlows();
 	const credentials = await IndexedDbCredentialStore.open("walkthrough-credentials");
 	const models = createModels({ credentials });
@@ -349,7 +384,8 @@ async function main() {
 		rail.innerHTML = data.concepts
 			.map((c, i) => {
 				const status = progress?.concepts[c.id]?.status;
-				return `<li class="${status ?? ""}"><span class="dot">${status === "done" ? "✓" : i + 1}</span>${encode(c.title)}</li>`;
+				const part = c.part && c.part !== data.concepts[i - 1]?.part ? `<li class="part">${encode(c.part)}</li>` : "";
+				return `${part}<li class="${status ?? ""}"><span class="dot">${status === "done" ? "✓" : i + 1}</span>${encode(c.title)}</li>`;
 			})
 			.join("");
 		const grades = progress?.grades ?? [];
@@ -379,6 +415,7 @@ async function main() {
 					const node = el("div", "wt-assistant", renderMarkdown(block.text, `a${entry.id}_`));
 					transcript.append(node);
 					activate(node);
+					linkCitations(node);
 				} else if (block.type === "toolCall" && block.name !== "render") {
 					appendTool(toolLabel(block.name ?? "", block.arguments ?? {}));
 				}
@@ -391,6 +428,7 @@ async function main() {
 				const node = el("div", "wt-card", renderMarkdown(markdown, `c${entry.id}_`));
 				transcript.append(node);
 				activate(node);
+				linkCitations(node);
 			}
 		}
 	}
@@ -426,7 +464,7 @@ async function main() {
 		const tools = state?.tools?.map((t) => t.name).join(", ");
 		live.innerHTML = partial ? md(partial) : busy ? `<p class="wt-working">${tools ? `working: ${encode(tools)}` : "thinking"}…</p>` : "";
 		$("#wt-send").textContent = busy ? "Stop" : "Send";
-		$("#wt-start").hidden = view.entries.some((e) => e.kind === "pi.user");
+		$("#wt-start-btn").hidden = view.entries.some((e) => e.kind === "pi.user");
 	}
 
 	const view = await root.viewState(ctx);
@@ -473,7 +511,19 @@ async function main() {
 	};
 	input.addEventListener("input", grow);
 	$("#wt-start-btn").onclick = () => void send("Let's start.");
-	$("#wt-concepts").innerHTML = data.concepts.map((c) => `<li>${encode(c.title)}</li>`).join("");
+	const parts: { name: string; concepts: string[] }[] = [];
+	for (const c of data.concepts) {
+		const name = c.part ?? "";
+		if (parts.at(-1)?.name !== name) parts.push({ name, concepts: [] });
+		parts.at(-1)?.concepts.push(c.title);
+	}
+	let n = 0;
+	$("#wt-concepts").innerHTML = parts
+		.map(
+			(p) =>
+				`<div class="wt-part">${p.name ? `<b>${encode(p.name)}</b>` : ""}<ol start="${n + 1}">${p.concepts.map((t) => (n++, `<li>${encode(t)}</li>`)).join("")}</ol></div>`,
+		)
+		.join("");
 
 	await applyModel();
 	if (!chosen) await openLogin();

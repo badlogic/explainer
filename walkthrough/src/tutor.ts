@@ -7,6 +7,7 @@ import { FORMAT_GUIDE, TEACHING_RULES } from "./prompt.ts";
 export interface Concept {
 	id: string;
 	title: string;
+	part?: string;
 	notes: string;
 	checks: { question: string; answer: string }[];
 }
@@ -15,6 +16,8 @@ export interface WalkthroughData {
 	title: string;
 	subtitle?: string;
 	tutor: string;
+	intro?: string;
+	introFigures?: number;
 	truth?: string;
 	concepts: Concept[];
 	sources: Record<string, string>;
@@ -196,7 +199,8 @@ export function createTutor(data: WalkthroughData, checkCard: CardChecker) {
 			const checks = c.checks.length
 				? `\nCheck questions (ask them; the answers are for you only):\n${c.checks.map((q, j) => `${j + 1}. ${q.question}\n   Answer: ${q.answer}`).join("\n")}`
 				: "";
-			return `## ${i + 1}. ${c.title} (id: ${c.id})\n${c.notes.trim()}${checks}`;
+			const part = c.part && c.part !== data.concepts[i - 1]?.part ? `# Part: ${c.part}\n\n` : "";
+			return `${part}## ${i + 1}. ${c.title} (id: ${c.id})\n${c.notes.trim()}${checks}`;
 		})
 		.join("\n\n");
 	const sourceList = paths.map((p) => `${p} (${data.sources[p].split("\n").length} lines)`).join("\n");
@@ -216,7 +220,10 @@ export function createTutor(data: WalkthroughData, checkCard: CardChecker) {
 					.join("\n\n"),
 			),
 			section("format", () => FORMAT_GUIDE),
-			section("outline", () => outline),
+			section("intro", () =>
+				data.intro ? `The learner has read this introduction on the page before starting (do not repeat it; build on it):\n\n${data.intro}` : undefined,
+			),
+			section("outline", () => `The outline, in teaching order (${data.concepts.length} concepts):\n\n${outline}`),
 			section("sources", () => `Bundled files (read with read, ls, find, grep):\n${sourceList}`),
 		],
 	});
