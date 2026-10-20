@@ -6,6 +6,7 @@ import { builtinProviders } from "@earendil-works/pi-ai/providers/all";
 import { createRegistry, Harness, MemoryStorage } from "@earendil-works/pi-durable";
 import { activate, Book, encode, md } from "../../lib/render.mjs";
 import { IndexedDbCredentialStore } from "./credentials.ts";
+import { deliverCallback, hasListeningServer } from "./stubs/http.ts";
 import { createTutor, type Progress, ProgressDoc, type WalkthroughData } from "./tutor.ts";
 
 type Json = Record<string, unknown>;
@@ -19,8 +20,12 @@ const BLOCKED: Record<string, string> = {
 	"openai-codex:oauth": "the Codex model endpoint is blocked for web pages",
 	"github-copilot:oauth": "the device-code endpoint is blocked for web pages",
 	"xai:oauth": "the device-code endpoint is blocked for web pages",
+	"openai:oauth": "OpenAI drops CORS headers for ChatGPT tokens",
 };
+/** Listed first: sign-ins that work from a web page. */
+const FIRST = ["radius", "anthropic", "openai", "openrouter"];
 const PREFERRED: Record<string, string[]> = {
+	radius: ["claude-sonnet-5-5", "claude-sonnet-5", "claude-opus-5-5", "balanced"],
 	anthropic: ["claude-sonnet-5-5", "claude-sonnet-5", "claude-opus-5-5", "claude-sonnet-4-6"],
 	openai: ["gpt-6-sol", "gpt-5.5", "gpt-5.1", "gpt-5"],
 	openrouter: ["anthropic/claude-sonnet-5-5", "anthropic/claude-sonnet-4.5"],
@@ -96,6 +101,7 @@ function dialog(title: string): { body: HTMLElement; close: () => void } {
 
 function askPrompt(body: HTMLElement, prompt: AuthPrompt): Promise<string> {
 	return new Promise((resolve, reject) => {
+		if (prompt.type === "manual_code") body.querySelector(".wt-paste")?.remove();
 		const row = el("div", "wt-prompt", `<p>${encode(prompt.message)}</p>`);
 		body.append(row);
 		prompt.signal?.addEventListener("abort", () => row.remove(), { once: true });
@@ -137,6 +143,38 @@ function showEvent(body: HTMLElement, event: AuthEvent) {
 			`<p>${encode(event.instructions ?? "Sign in in the new tab.")}</p><a class="wt-btn primary" target="_blank" rel="noopener" href="${encode(event.url)}">Open sign-in page</a><p class="wt-hint">After signing in, the browser tries to open a <code>localhost</code> address and fails to load it. That is expected: copy that address from the address bar and paste it below.</p>`,
 		);
 		body.append(row);
+		// Flows that only wait for their localhost callback (Radius) get a paste field that delivers the URL to it.
+		// Flows that ask for the URL themselves replace it with their own prompt.
+		queueMicrotask(() => {
+			if (!hasListeningServer() || body.querySelector(".wt-prompt")) return;
+			const paste = el("div", "wt-prompt wt-paste", "<p>Paste the <code>localhost</code> address here:</p>");
+			const input = el("input", "wt-input") as HTMLInputElement;
+			input.placeholder = "http://127.0.0.1:…/…?code=…";
+			const ok = el("button", "wt-btn primary", "Continue");
+			const error = el("p", "wt-hint");
+			const submit = async () => {
+				if (!input.value.trim()) return;
+				ok.textContent = "Signing in…";
+				try {
+					const result = await deliverCallback(input.value);
+					if (result.status >= 400) {
+						const page = new DOMParser().parseFromString(result.body, "text/html");
+						page.querySelectorAll("style,script").forEach((n) => n.remove());
+						error.textContent = (page.body.textContent ?? "").replace(/\s+/g, " ").trim();
+					}
+					else paste.remove();
+				} catch (failure) {
+					error.textContent = failure instanceof Error ? failure.message : String(failure);
+				}
+				ok.textContent = "Continue";
+			};
+			ok.onclick = () => void submit();
+			input.addEventListener("keydown", (e) => {
+				if (e.key === "Enter") void submit();
+			});
+			paste.append(input, ok, error);
+			body.append(paste);
+		});
 	} else if (event.type === "device_code") {
 		body.append(
 			el("div", "wt-event", `<p>Enter <code>${encode(event.userCode)}</code> at <a target="_blank" rel="noopener" href="${encode(event.verificationUri)}">${encode(event.verificationUri)}</a></p>`),
@@ -235,8 +273,9 @@ async function main() {
 				"Credentials stay in this browser; requests go from this page straight to the provider. Some providers block requests from web pages (CORS); their sign-in or first message then fails with a network error.",
 			),
 		);
+		const rank = (id: string) => (stored.has(id) ? -10 : 0) + (FIRST.includes(id) ? FIRST.indexOf(id) - FIRST.length : 0);
 		const providers = [...models.getProviders()].sort(
-			(a, b) => Number(stored.has(b.id)) - Number(stored.has(a.id)) || (a.name ?? a.id).localeCompare(b.name ?? b.id),
+			(a, b) => rank(a.id) - rank(b.id) || (a.name ?? a.id).localeCompare(b.name ?? b.id),
 		);
 		const filter = el("input", "wt-input wt-filter") as HTMLInputElement;
 		filter.placeholder = "Filter providers";
@@ -299,6 +338,7 @@ async function main() {
 			await applyModel();
 		} catch (error) {
 			if (abort.signal.aborted) return;
+			steps.querySelector(".wt-paste")?.remove();
 			steps.append(el("div", "wt-error", `<p>${encode(error instanceof Error ? error.message : String(error))}</p>`));
 		}
 	}

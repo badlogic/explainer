@@ -193,10 +193,11 @@ which figure would help.
   -o path/walkthrough.html`. Keep the `.md` next to the `.html`.
 - The tutor's built-in rules (one concept at a time, ask and wait, grade, cite sources, figure limits) are in
   `walkthrough/src/prompt.ts`; `:::tutor` adds the author's instructions on top.
-- The page works offline from any static host. Model requests go from the reader's browser to the provider: Anthropic,
-  OpenAI and OpenRouter API keys work; Sign in with ChatGPT and OpenRouter OAuth work by pasting the `localhost`
-  redirect URL; Claude Pro/Max and ChatGPT/Codex subscriptions do not (their token or model endpoints send no CORS
-  headers).
+- The page works from any static host. Model requests go from the reader's browser to the provider. Working: Radius
+  (sign in with the browser, then paste the `localhost` address the sign-in tab ends on), Anthropic, OpenAI and
+  OpenRouter API keys, OpenRouter OAuth. Blocked by the providers (no CORS headers for web pages): Claude Pro/Max,
+  Sign in with ChatGPT, Codex, GitHub Copilot and xAI sign-ins. The sign-in dialog lists every pi-ai provider and
+  labels the blocked ones.
 - The conversation and progress live in memory for one visit (a reload starts over); credentials and the chosen
   model persist. Persistence comes with pi-durable's IndexedDB storage once it is published.
 - Check it before publishing: open it in a browser (any local static server), sign in, press Start, answer one
