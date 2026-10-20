@@ -35,9 +35,14 @@ const el = (tag: string, cls?: string, html?: string) => {
 /* ------------------------------------------------------------------ cards */
 
 let cardSeq = 0;
+let figures = 0;
+/** Figures are numbered across the whole transcript, in display order. */
 function renderMarkdown(markdown: string, prefix: string): string {
+	const book = new Book({ prefix, start: figures });
 	try {
-		return new Book({ prefix }).blocks(markdown);
+		const html = book.blocks(markdown);
+		figures = book.figures;
+		return html;
 	} catch {
 		return md(markdown);
 	}
