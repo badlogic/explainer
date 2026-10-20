@@ -2,10 +2,7 @@
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { type AuthEvent, type AuthPrompt, createModels, type Api, type Model } from "@earendil-works/pi-ai";
 import { registerBunOAuthFlows } from "@earendil-works/pi-ai/bun-oauth";
-import { anthropicProvider } from "@earendil-works/pi-ai/providers/anthropic";
-import { googleProvider } from "@earendil-works/pi-ai/providers/google";
-import { openaiProvider } from "@earendil-works/pi-ai/providers/openai";
-import { openrouterProvider } from "@earendil-works/pi-ai/providers/openrouter";
+import { builtinProviders } from "@earendil-works/pi-ai/providers/all";
 import { createRegistry, Harness, MemoryStorage } from "@earendil-works/pi-durable";
 import { activate, Book, encode, md } from "../../lib/render.mjs";
 import { IndexedDbCredentialStore } from "./credentials.ts";
@@ -16,7 +13,13 @@ type Entry = { id: number; kind: string; model?: Json[] };
 type View = { entries: readonly Entry[]; docs: Record<string, Json> };
 
 const ctx = BACKGROUND_CONTEXT;
-const PROVIDERS = [anthropicProvider, openaiProvider, openrouterProvider, googleProvider];
+/** Sign-ins measured to fail from a web page: the provider's token, device-code or model endpoint sends no CORS headers. */
+const BLOCKED: Record<string, string> = {
+	"anthropic:oauth": "the token exchange is blocked for web pages",
+	"openai-codex:oauth": "the Codex model endpoint is blocked for web pages",
+	"github-copilot:oauth": "the device-code endpoint is blocked for web pages",
+	"xai:oauth": "the device-code endpoint is blocked for web pages",
+};
 const PREFERRED: Record<string, string[]> = {
 	anthropic: ["claude-sonnet-5-5", "claude-sonnet-5", "claude-opus-5-5", "claude-sonnet-4-6"],
 	openai: ["gpt-6-sol", "gpt-5.5", "gpt-5.1", "gpt-5"],
@@ -117,7 +120,9 @@ function askPrompt(body: HTMLElement, prompt: AuthPrompt): Promise<string> {
 			resolve(input.value.trim());
 		};
 		ok.onclick = submit;
-		input.onkeydown = (e) => e.key === "Enter" && submit();
+		input.addEventListener("keydown", (e) => {
+			if (e.key === "Enter") submit();
+		});
 		row.append(input, ok);
 		input.focus();
 		void reject;
@@ -150,7 +155,7 @@ async function main() {
 	registerBunOAuthFlows();
 	const credentials = await IndexedDbCredentialStore.open("walkthrough-credentials");
 	const models = createModels({ credentials });
-	for (const provider of PROVIDERS) models.setProvider(provider());
+	for (const provider of builtinProviders()) models.setProvider(provider);
 
 	const registry = createRegistry();
 	registry.install(createTutor(data, checkCard));
@@ -207,19 +212,48 @@ async function main() {
 	};
 
 	$("#wt-login").onclick = () => openLogin();
+	$("#wt-outline-btn").onclick = (e) => {
+		e.stopPropagation();
+		document.body.classList.toggle("wt-rail-open");
+	};
+	$(".wt-main").addEventListener("click", () => document.body.classList.remove("wt-rail-open"));
+	$(".wt-rail").onclick = (e) => {
+		if ((e.target as HTMLElement).closest("#wt-outline")) document.body.classList.remove("wt-rail-open");
+	};
 	async function openLogin() {
 		const { body, close } = dialog("Sign in to a model provider");
+		await renderProviders(body, close);
+	}
+
+	async function renderProviders(body: HTMLElement, close: () => void) {
+		body.innerHTML = "";
 		const stored = new Set((await credentials.list()).map((c) => c.providerId));
-		body.append(el("p", "wt-hint", "Credentials stay in this browser. Requests go from this page straight to the provider."));
-		for (const make of PROVIDERS) {
-			const provider = models.getProvider(make().id);
-			if (!provider) continue;
+		body.append(
+			el(
+				"p",
+				"wt-hint",
+				"Credentials stay in this browser; requests go from this page straight to the provider. Some providers block requests from web pages (CORS); their sign-in or first message then fails with a network error.",
+			),
+		);
+		const providers = [...models.getProviders()].sort(
+			(a, b) => Number(stored.has(b.id)) - Number(stored.has(a.id)) || (a.name ?? a.id).localeCompare(b.name ?? b.id),
+		);
+		const filter = el("input", "wt-input wt-filter") as HTMLInputElement;
+		filter.placeholder = "Filter providers";
+		filter.addEventListener("input", () => {
+			const q = filter.value.trim().toLowerCase();
+			for (const row of body.querySelectorAll<HTMLElement>(".wt-provider")) row.hidden = !row.dataset.name?.includes(q);
+		});
+		body.append(filter);
+		for (const provider of providers) {
 			const row = el("div", "wt-provider", `<b>${encode(provider.name ?? provider.id)}</b>${stored.has(provider.id) ? ` <span class="wt-ok">signed in</span>` : ""}`);
 			const methods: { type: "api_key" | "oauth"; label: string }[] = [];
 			if (provider.auth.apiKey) methods.push({ type: "api_key", label: "API key" });
 			if (provider.auth.oauth) methods.push({ type: "oauth", label: provider.auth.oauth.loginLabel ?? provider.auth.oauth.name });
+			row.dataset.name = `${provider.name ?? ""} ${provider.id}`.toLowerCase();
 			for (const method of methods) {
-				const b = el("button", "wt-btn", encode(method.label));
+				const blocked = BLOCKED[`${provider.id}:${method.type}`];
+				const b = el("button", `wt-btn${blocked ? " blocked" : ""}`, `${encode(method.label)}${blocked ? `<small>${encode(blocked)}</small>` : ""}`);
 				b.onclick = () => runLogin(provider.id, method.type, body, close);
 				row.append(b);
 			}
@@ -244,8 +278,15 @@ async function main() {
 			abort.abort();
 			close();
 		};
+		const back = el("button", "wt-btn subtle", "Back");
+		back.onclick = () => {
+			abort.abort();
+			void renderProviders(body, close);
+		};
 		const steps = el("div");
-		body.append(steps, cancel);
+		const actions = el("div", "wt-actions");
+		actions.append(back, cancel);
+		body.append(steps, actions);
 		try {
 			await models.login(
 				providerId,
@@ -272,6 +313,8 @@ async function main() {
 			})
 			.join("");
 		const grades = progress?.grades ?? [];
+		const done = data.concepts.filter((c) => progress?.concepts[c.id]?.status === "done").length;
+		$("#wt-outline-btn").textContent = `Outline · ${done}/${data.concepts.length}`;
 		$("#wt-score").textContent = grades.length
 			? `${grades.filter((g) => g.verdict === "correct").length} of ${grades.length} answers correct`
 			: "";
@@ -370,6 +413,7 @@ async function main() {
 		if (!chosen) return openLogin();
 		if (!textValue.trim()) return;
 		input.value = "";
+		input.style.height = "auto";
 		try {
 			await root.submit({ type: "input", content: textValue, whenBusy: "steer" }, ctx);
 		} catch (error) {
@@ -377,12 +421,17 @@ async function main() {
 		}
 	}
 	$("#wt-send").onclick = () => (busy && !input.value.trim() ? void root.abort(ctx) : void send(input.value));
-	input.onkeydown = (e) => {
+	input.addEventListener("keydown", (e) => {
 		if (e.key === "Enter" && !e.shiftKey) {
 			e.preventDefault();
 			void send(input.value);
 		}
+	});
+	const grow = () => {
+		input.style.height = "auto";
+		input.style.height = `${Math.min(input.scrollHeight, 240)}px`;
 	};
+	input.addEventListener("input", grow);
 	$("#wt-start-btn").onclick = () => void send("Let's start.");
 	$("#wt-concepts").innerHTML = data.concepts.map((c) => `<li>${encode(c.title)}</li>`).join("");
 

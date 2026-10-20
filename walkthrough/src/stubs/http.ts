@@ -4,31 +4,66 @@ type Listener = (...args: unknown[]) => void;
 
 class FakeServer {
 	#port = 0;
-	listen(port: number, _host: string, callback?: () => void): this {
+	#listeners = new Map<string, Set<Listener>>();
+	listen(port: number, ...rest: unknown[]): this {
 		this.#port = port || 1455;
-		queueMicrotask(() => callback?.());
+		const callback = rest.find((r) => typeof r === "function") as (() => void) | undefined;
+		queueMicrotask(() => {
+			callback?.();
+			this.emit("listening");
+		});
 		return this;
 	}
 	address(): { port: number; address: string; family: string } {
 		return { port: this.#port, address: "127.0.0.1", family: "IPv4" };
 	}
-	on(_event: string, _listener: Listener): this {
+	on(event: string, listener: Listener): this {
+		if (!this.#listeners.has(event)) this.#listeners.set(event, new Set());
+		this.#listeners.get(event)?.add(listener);
 		return this;
 	}
-	once(_event: string, _listener: Listener): this {
+	addListener(event: string, listener: Listener): this {
+		return this.on(event, listener);
+	}
+	once(event: string, listener: Listener): this {
+		const wrapped: Listener = (...args) => {
+			this.off(event, wrapped);
+			listener(...args);
+		};
+		return this.on(event, wrapped);
+	}
+	off(event: string, listener: Listener): this {
+		this.#listeners.get(event)?.delete(listener);
 		return this;
 	}
-	off(_event: string, _listener: Listener): this {
+	removeListener(event: string, listener: Listener): this {
+		return this.off(event, listener);
+	}
+	removeAllListeners(event?: string): this {
+		if (event) this.#listeners.delete(event);
+		else this.#listeners.clear();
 		return this;
+	}
+	emit(event: string, ...args: unknown[]): boolean {
+		const set = this.#listeners.get(event);
+		for (const listener of set ?? []) listener(...args);
+		return Boolean(set?.size);
 	}
 	close(callback?: () => void): this {
 		queueMicrotask(() => callback?.());
 		return this;
 	}
 	closeAllConnections(): void {}
+	closeIdleConnections(): void {}
+	unref(): this {
+		return this;
+	}
+	ref(): this {
+		return this;
+	}
 }
 
-export function createServer(_handler?: Listener): FakeServer {
+export function createServer(..._args: unknown[]): FakeServer {
 	return new FakeServer();
 }
 export type ServerResponse = never;
