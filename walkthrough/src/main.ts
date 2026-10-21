@@ -439,6 +439,10 @@ async function main() {
 	const transcript = $("#wt-transcript");
 	const live = $("#wt-live");
 	const rendered = new Set<number>();
+	let lastUser: HTMLElement | undefined;
+	let scrollToTurn = false;
+	/** Puts the learner's latest message at the top of the screen; the reply then grows below it without scrolling. */
+	const showLatestTurn = () => requestAnimationFrame(() => lastUser?.scrollIntoView({ block: "start" }));
 
 	function appendEntry(entry: Entry) {
 		const message = entry.model?.[0] as Json | undefined;
@@ -446,7 +450,13 @@ async function main() {
 		if (entry.kind === "pi.user") {
 			const content = message.content;
 			const textContent = typeof content === "string" ? content : (content as { type: string; text?: string }[]).map((c) => c.text ?? "").join("");
-			transcript.append(el("div", "wt-user", md(textContent)));
+			const node = el("div", "wt-user", md(textContent));
+			transcript.append(node);
+			lastUser = node;
+			if (scrollToTurn) {
+				scrollToTurn = false;
+				showLatestTurn();
+			}
 		} else if (entry.kind === "pi.assistant") {
 			const blocks = (message.content as { type: string; text?: string; name?: string; arguments?: Json }[]) ?? [];
 			for (const block of blocks) {
@@ -515,22 +525,12 @@ async function main() {
 		}
 		renderLive(value);
 		renderRail(await harness.snapshot(ProgressDoc, root.id, ctx));
-		if (follow) window.scrollTo({ top: document.body.scrollHeight });
+		document.body.classList.toggle("wt-started", Boolean(lastUser));
 	};
-	// Follow new output only after the learner sent something, and only while they stay near the bottom.
-	let follow = false;
-	window.addEventListener("scroll", () => {
-		if (sending) return;
-		follow = window.innerHeight + window.scrollY > document.body.scrollHeight - 160;
-	});
-	let sending = false;
 	view.subscribe((value) => void update(value as unknown as View));
 	await update(view.value as unknown as View);
-	// A resumed conversation opens where it left off.
-	if ((view.value as unknown as View).entries.some((e) => e.kind === "pi.user")) {
-		follow = true;
-		requestAnimationFrame(() => window.scrollTo({ top: document.body.scrollHeight }));
-	}
+	// A resumed conversation opens at the learner's last message.
+	showLatestTurn();
 
 	/* ---- composer */
 	const input = $<HTMLTextAreaElement>("#wt-input");
@@ -539,9 +539,7 @@ async function main() {
 		if (!textValue.trim()) return;
 		input.value = "";
 		input.style.height = "auto";
-		follow = true;
-		sending = true;
-		setTimeout(() => (sending = false), 800);
+		scrollToTurn = true;
 		try {
 			await root.submit({ type: "input", content: textValue, whenBusy: "steer" }, ctx);
 		} catch (error) {
