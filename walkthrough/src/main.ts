@@ -455,10 +455,10 @@ async function main() {
 	};
 	window.addEventListener("resize", fitSpacer);
 	/** Puts the learner's latest message at the top of the screen; the reply then grows below it without scrolling. */
-	const showLatestTurn = () =>
+	const showLatestTurn = (smooth: boolean) =>
 		requestAnimationFrame(() => {
 			fitSpacer();
-			lastUser?.scrollIntoView({ block: "start" });
+			lastUser?.scrollIntoView({ block: "start", behavior: smooth ? "smooth" : "instant" });
 		});
 
 	function appendEntry(entry: Entry) {
@@ -472,7 +472,7 @@ async function main() {
 			lastUser = node;
 			if (scrollToTurn) {
 				scrollToTurn = false;
-				showLatestTurn();
+				showLatestTurn(true);
 			}
 		} else if (entry.kind === "pi.assistant") {
 			const blocks = (message.content as { type: string; text?: string; name?: string; arguments?: Json }[]) ?? [];
@@ -547,7 +547,7 @@ async function main() {
 	view.subscribe((value) => void update(value as unknown as View));
 	await update(view.value as unknown as View);
 	// A resumed conversation opens at the learner's last message.
-	showLatestTurn();
+	showLatestTurn(false);
 
 	/* ---- composer */
 	const input = $<HTMLTextAreaElement>("#wt-input");
