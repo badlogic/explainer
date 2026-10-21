@@ -120,15 +120,16 @@ function checkCard(markdown: string): { problems: string[] } {
 
 /* ------------------------------------------------------------------ login */
 
-function dialog(title: string): { body: HTMLElement; close: () => void } {
+function dialog(title: string, closable = true): { body: HTMLElement; close: () => void } {
 	const back = el("div", "wt-modal");
-	const box = el("div", "wt-dialog", `<div class="wt-dialog-head"><b>${encode(title)}</b><button class="wt-x" type="button">Close</button></div>`);
+	const box = el("div", "wt-dialog", `<div class="wt-dialog-head"><b>${encode(title)}</b>${closable ? `<button class="wt-x" type="button">Close</button>` : ""}</div>`);
 	const body = el("div", "wt-dialog-body");
 	box.append(body);
 	back.append(box);
 	document.body.append(back);
 	const close = () => back.remove();
-	(box.querySelector(".wt-x") as HTMLButtonElement).onclick = close;
+	const x = box.querySelector(".wt-x") as HTMLButtonElement | null;
+	if (x) x.onclick = close;
 	return { body, close };
 }
 
@@ -235,13 +236,37 @@ async function main() {
 	registry.install(createTutor(data, checkCard));
 	// One database per walkthrough. Durable allows one owner per storage, so a Web Lock keeps a second tab out.
 	const dbName = `walkthrough-session:${data.title}`;
-	if (!(await holdLock(dbName))) {
-		$("#wt-boot").textContent = "This walkthrough is open in another tab. Close it there, then reload this page.";
-		return;
+	let lost: () => void = () => {};
+	const onLost = () => lost();
+	if (!(await holdLock(dbName, false, onLost))) {
+		await new Promise<void>((resolve) => {
+			const { body } = dialog("Open in another tab", false);
+			body.append(
+				el("p", "", "This walkthrough is already open in another tab. It can run in one tab at a time, so your conversation stays consistent."),
+			);
+			const here = el("button", "wt-btn primary", "Use it here");
+			here.onclick = async () => {
+				here.textContent = "Taking over…";
+				await holdLock(dbName, true, onLost);
+				body.closest(".wt-modal")?.remove();
+				resolve();
+			};
+			const actions = el("div", "wt-actions");
+			actions.append(here);
+			body.append(actions, el("p", "wt-hint", "The other tab then stops and tells you so."));
+		});
 	}
 	void navigator.storage?.persist?.();
 	const harness = await Harness.open(await IndexedDbStorage.open(dbName), { models, registry }, ctx);
 	harness.resume();
+	lost = () => {
+		void harness.close(ctx);
+		const { body } = dialog("Continued in another tab", false);
+		body.append(el("p", "", "This walkthrough was opened in another tab and continues there. Reload this page to take it back."));
+		const reload = el("button", "wt-btn primary", "Reload");
+		reload.onclick = () => location.reload();
+		body.append(reload);
+	};
 	$("#wt-reset").onclick = async () => {
 		if (!confirm("Start over? This deletes the conversation and your progress in this browser.")) return;
 		await harness.close(ctx);
@@ -555,14 +580,19 @@ async function main() {
 	$("#wt-boot").remove();
 }
 
-/** Takes the Web Lock `name` and holds it for the page's lifetime; false when another tab holds it. */
-function holdLock(name: string): Promise<boolean> {
+/**
+ * Takes the Web Lock `name` and holds it for the page's lifetime; false when another tab holds it. `steal` takes it
+ * from that tab, whose `onLost` then runs.
+ */
+function holdLock(name: string, steal: boolean, onLost: () => void): Promise<boolean> {
 	if (!navigator.locks) return Promise.resolve(true);
 	return new Promise((resolve) => {
-		void navigator.locks.request(name, { ifAvailable: true }, (lock) => {
-			resolve(lock !== null);
-			return lock ? new Promise<void>(() => {}) : undefined;
-		});
+		navigator.locks
+			.request(name, steal ? { steal: true } : { ifAvailable: true }, (lock) => {
+				resolve(lock !== null);
+				return lock ? new Promise<void>(() => {}) : undefined;
+			})
+			.catch(() => onLost());
 	});
 }
 
@@ -576,7 +606,11 @@ function deviceId(): string {
 }
 
 main().catch((error) => {
-	const boot = document.querySelector("#wt-boot");
-	if (boot) boot.textContent = `Failed to start: ${error instanceof Error ? error.message : String(error)}`;
+	document.querySelector("#wt-boot")?.remove();
+	const { body } = dialog("The walkthrough could not start", false);
+	body.append(el("p", "", encode(error instanceof Error ? error.message : String(error))));
+	const reload = el("button", "wt-btn primary", "Reload");
+	reload.onclick = () => location.reload();
+	body.append(reload);
 	console.error(error);
 });
