@@ -64,7 +64,7 @@ body.wt{display:grid;grid-template-columns:290px minmax(0,1fr);min-height:100vh;
 .wt-hint{color:var(--muted);font-size:.85rem}
 .wt-measure{position:absolute;left:-10000px;top:0;width:680px;visibility:hidden}
 @media (max-width:1100px){
- body.wt{grid-template-columns:1fr}
+ body.wt{grid-template-columns:minmax(0,1fr)}
  .wt-rail{position:fixed;z-index:15;left:0;top:0;bottom:0;height:auto;width:min(320px,86vw);transform:translateX(-105%);transition:transform .2s;box-shadow:20px 0 60px -30px rgba(40,30,10,.5)}
  body.wt-rail-open .wt-rail{transform:none}
  #wt-outline-btn{display:inline-block}
@@ -85,3 +85,8 @@ body.wt{display:grid;grid-template-columns:290px minmax(0,1fr);min-height:100vh;
 .wt-source-text .ln::before{content:attr(data-n);display:inline-block;width:3.6em;margin-right:1em;text-align:right;color:#b3a993}
 .wt-source-text .ln.hl{background:#f6e3c8}
 #wt-reset{margin-top:1.4rem;font-size:.72rem;color:var(--muted)}
+.wt-main{min-width:0}
+.wt-main .fig svg{max-width:100%;height:auto}
+.wt-main table{display:block;max-width:100%;overflow-x:auto}
+.wt-main pre{max-width:100%}
+@media (max-width:760px){.wt-main .fig.wide{margin-left:0;margin-right:0}.wt-user{max-width:92%}#wt-start h2{font-size:2rem}.wt-bar select{max-width:11rem}}
