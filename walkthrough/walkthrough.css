@@ -91,3 +91,8 @@ body.wt{display:grid;grid-template-columns:290px minmax(0,1fr);min-height:100vh;
 .wt-main pre{max-width:100%}
 @media (max-width:760px){.wt-main .fig.wide{margin-left:0;margin-right:0}.wt-user{max-width:92%}#wt-start h2{font-size:2rem}.wt-bar select{max-width:11rem}}
 .wt-user{scroll-margin-top:72px}
+/* No content wider than the screen: a long URL or identifier makes mobile Chrome enlarge the layout viewport beyond the
+   screen, so the sticky header and composer leave it and swipes pan the page instead of scrolling it. clip catches the rest. */
+#wt-start,#wt-transcript,#wt-live{overflow-wrap:break-word}
+.wt-user{overflow-wrap:anywhere}
+.wt-main{overflow-x:clip}
