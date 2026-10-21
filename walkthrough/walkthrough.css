@@ -91,5 +91,3 @@ body.wt{display:grid;grid-template-columns:290px minmax(0,1fr);min-height:100vh;
 .wt-main pre{max-width:100%}
 @media (max-width:760px){.wt-main .fig.wide{margin-left:0;margin-right:0}.wt-user{max-width:92%}#wt-start h2{font-size:2rem}.wt-bar select{max-width:11rem}}
 .wt-user{scroll-margin-top:72px}
-/* Room below the latest turn, so the learner's message can sit at the top while the reply grows. */
-body.wt-started #wt-live{min-height:calc(100vh - 260px)}

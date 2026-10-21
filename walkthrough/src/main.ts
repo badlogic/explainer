@@ -441,8 +441,25 @@ async function main() {
 	const rendered = new Set<number>();
 	let lastUser: HTMLElement | undefined;
 	let scrollToTurn = false;
+	/**
+	 * Room below the latest turn so the learner's message can sit at the top of the screen while the reply is still
+	 * shorter than the screen. It shrinks as the reply grows and is gone once the turn fills the screen.
+	 */
+	const spacer = $("#wt-spacer");
+	const fitSpacer = () => {
+		if (!lastUser) return;
+		const header = $(".wt-bar").offsetHeight + 16;
+		const composer = $(".wt-composer").offsetHeight;
+		const turn = live.getBoundingClientRect().bottom - lastUser.getBoundingClientRect().top;
+		spacer.style.height = `${Math.max(0, window.innerHeight - header - composer - turn)}px`;
+	};
+	window.addEventListener("resize", fitSpacer);
 	/** Puts the learner's latest message at the top of the screen; the reply then grows below it without scrolling. */
-	const showLatestTurn = () => requestAnimationFrame(() => lastUser?.scrollIntoView({ block: "start" }));
+	const showLatestTurn = () =>
+		requestAnimationFrame(() => {
+			fitSpacer();
+			lastUser?.scrollIntoView({ block: "start" });
+		});
 
 	function appendEntry(entry: Entry) {
 		const message = entry.model?.[0] as Json | undefined;
@@ -525,7 +542,7 @@ async function main() {
 		}
 		renderLive(value);
 		renderRail(await harness.snapshot(ProgressDoc, root.id, ctx));
-		document.body.classList.toggle("wt-started", Boolean(lastUser));
+		fitSpacer();
 	};
 	view.subscribe((value) => void update(value as unknown as View));
 	await update(view.value as unknown as View);
